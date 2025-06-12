@@ -1,24 +1,24 @@
+
 import ilog.concert.IloException;
 import ilog.concert.IloLinearNumExpr;
 import ilog.concert.IloNumVar;
 import ilog.cplex.IloCplex;
-
 public class laboratorio1 {
     public static void main(String[] args) {
         try {
             IloCplex model = new IloCplex();
 
             // Datos de entrada
-            int nTareas = 5;
-            int nCPUs = 3;
-            double[] rt = {261.27, 560.89, 310.51, 105.80, 344.7};  // Recursos solicitados por cada tarea
-            double[] rc = {505.67, 503.68, 701.78};  // Capacidad de cada CPU
+            int nTareas = 4; // Número de tareas
+            int nCPUs = 3;  // Número de CPUs
+            double[] rt = {261.27, 560.89, 310.51, 105.80};  // Recursos solicitados por cada tarea
+            double[] rc = {505.67, 503.68, 701.78};  // Capacidades de cada CPU
 
-            // Variables de decisión x_tc[t][c] (binarias)
+            // Variables de decisión x_tc[t][c]
             IloNumVar[][] x_tc = new IloNumVar[nTareas][nCPUs];
             for (int t = 0; t < nTareas; t++) {
                 for (int c = 0; c < nCPUs; c++) {
-                    x_tc[t][c] = model.boolVar("x_" + (t + 1) + "_" + (c + 1));
+                    x_tc[t][c] = model.boolVar("x_" + (t+1) + "_" + (c+1));
                 }
             }
 
@@ -26,13 +26,13 @@ public class laboratorio1 {
             IloNumVar z = model.numVar(0, Double.MAX_VALUE, "z");
             model.addMinimize(z);  // Objetivo: Minimizar la carga máxima
 
-            // Restricción 1: Asignar cada tarea a exactamente una CPU
+            // Restricción 1: Asignar cada tarea a alguna CPU (sumar fracciones de x_tc para cada tarea)
             for (int t = 0; t < nTareas; t++) {
                 IloLinearNumExpr sumadeAsignaciones = model.linearNumExpr();
                 for (int c = 0; c < nCPUs; c++) {
                     sumadeAsignaciones.addTerm(1.0, x_tc[t][c]);
                 }
-                model.addEq(sumadeAsignaciones, 1, "Asignacion de tarea " + (t + 1));
+                model.addEq(sumadeAsignaciones, 1, "Asignacion de tarea " + (t+1));
             }
 
             // Restricción 2: La carga de cada CPU no puede exceder su capacidad
@@ -41,16 +41,16 @@ public class laboratorio1 {
                 for (int t = 0; t < nTareas; t++) {
                     cargaCPU.addTerm(rt[t], x_tc[t][c]);
                 }
-                model.addLe(cargaCPU, rc[c], "Carga CPU: " + (c + 1));
+                model.addLe(cargaCPU, rc[c], "Carga CPU: " + (c+1));
             }
 
             // Restricción 3: La carga máxima (z) debe ser al menos la carga en cada CPU
             for (int c = 0; c < nCPUs; c++) {
-                IloLinearNumExpr maxLoad = model.linearNumExpr();
+                IloLinearNumExpr utilizacionExpr = model.linearNumExpr();
                 for (int t = 0; t < nTareas; t++) {
-                    maxLoad.addTerm(rt[t], x_tc[t][c]);
+                    utilizacionExpr.addTerm(rt[t] / rc[c], x_tc[t][c]);
                 }
-                model.addGe(z, maxLoad, "Z_Upperbound " + (c + 1));
+                model.addGe(z, utilizacionExpr, "Z_Upperbound " + c);
             }
 
             // Preprocesamiento: Mostrar la carga total solicitada
@@ -70,7 +70,7 @@ public class laboratorio1 {
                 for (int t = 0; t < nTareas; t++) {
                     for (int c = 0; c < nCPUs; c++) {
                         if (model.getValue(x_tc[t][c]) > 0.5) {  // Si la tarea está asignada a la CPU
-                            System.out.println("Tarea: " + (t + 1) + " está asignada al CPU: " + (c + 1));
+                            System.out.println("Tarea: " + (t+1) + " está asignada al CPU: " + (c+1));
                         }
                     }
                 }
@@ -83,7 +83,7 @@ public class laboratorio1 {
                         carga += rt[t] * model.getValue(x_tc[t][c]);
                     }
                     double porcentajeDeUtilizacion = (carga / rc[c]) * 100;
-                    System.out.println("CPU: " + (c + 1) + " está cargada al: " + String.format("%.2f", porcentajeDeUtilizacion) + "%");
+                    System.out.println("CPU: " + (c+1) + " está cargada al: " + String.format("%.2f", porcentajeDeUtilizacion) + "%");
                 }
 
             } else {
@@ -95,6 +95,6 @@ public class laboratorio1 {
         } catch (IloException e) {
             throw new RuntimeException(e);  // Manejo de excepciones
         }
-
     }
+
 }
